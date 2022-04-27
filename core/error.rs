@@ -291,7 +291,7 @@ impl JsError {
               source_line = source_map_getter
                 .get_source_line(file_name, (line_number - 1) as usize);
               source_line_frame_index = Some(i);
-              break;
+              
             }
           }
         }

@@ -92,40 +92,40 @@ fn format_frame(frame: &JsStackFrame) -> String {
     if let Some(function_name) = &frame.function_name {
       if let Some(type_name) = &frame.type_name {
         if !function_name.starts_with(type_name) {
-          formatted_method += &format!("{}.", type_name);
+          formatted_method += &format!("{}.asdf9", type_name);
         }
       }
-      formatted_method += function_name;
+      formatted_method += &format!("{}asdf8", function_name);
       if let Some(method_name) = &frame.method_name {
         if !function_name.ends_with(method_name) {
-          formatted_method += &format!(" [as {}]", method_name);
+          formatted_method += &format!(" [as {}]asdf7", method_name);
         }
       }
     } else {
       if let Some(type_name) = &frame.type_name {
-        formatted_method += &format!("{}.", type_name);
+        formatted_method += &format!("{}.asdf6", type_name);
       }
       if let Some(method_name) = &frame.method_name {
-        formatted_method += method_name
+        formatted_method += &format!("{}asdf5", method_name)
       } else {
         formatted_method += "<anonymous>";
       }
     }
-    result += &italic_bold(&formatted_method).to_string();
+    result += &format!("{}asdf3", &italic_bold(&formatted_method).to_string());
   } else if frame.is_constructor {
     result += "new ";
     if let Some(function_name) = &frame.function_name {
-      result += &italic_bold(&function_name).to_string();
+      result += &format!("{}asdf2",&italic_bold(&function_name).to_string());
     } else {
       result += &cyan("<anonymous>").to_string();
     }
   } else if let Some(function_name) = &frame.function_name {
-    result += &italic_bold(&function_name).to_string();
+    result += &format!("{}asdf1",&italic_bold(&function_name).to_string());
   } else {
     result += &format_location(frame);
     return result;
   }
-  result += &format!(" ({})", format_location(frame));
+  result += &format!(" ({})asdf4", format_location(frame));
   result
 }
 
@@ -181,12 +181,20 @@ fn format_maybe_source_line(
   format!("\n{}{}\n{}{}", indent, source_line, indent, color_underline)
 }
 
-fn format_js_error(js_error: &JsError, is_child: bool) -> String {
+fn format_js_error(js_error: &JsError, is_child: bool, master_message: Option<String>) -> String {
   let mut s = String::new();
+  if let Some(parent_name) = &js_error.message {
+    print!("\nname: {}", parent_name);
+  }
+  if let Some(source_line) = &js_error.source_line_frame_index {
+    
+    print!("{}", source_line)
+  }
+
   s.push_str(&js_error.exception_message);
   if let Some(aggregated) = &js_error.aggregated {
     for aggregated_error in aggregated {
-      let error_string = format_js_error(aggregated_error, true);
+      let error_string = format_js_error(aggregated_error, true, None);
       for line in error_string.trim_start_matches("Uncaught ").lines() {
         s.push_str(&format!("\n    {}", line));
       }
@@ -209,11 +217,21 @@ fn format_js_error(js_error: &JsError, is_child: bool) -> String {
     s.push_str(&format!("\n    at {}", format_frame(frame)));
   }
   if let Some(cause) = &js_error.cause {
-    let error_string = format_js_error(cause, true);
-    s.push_str(&format!(
-      "\nCaused by: {}",
-      error_string.trim_start_matches("Uncaught ")
-    ));
+    let cause_name = &cause.message;
+    if let Some(name) = &cause_name {
+      if let Some(parent_name) = &js_error.message {
+        print!("\nboolcheck: {}\nparent_name: {}\ncause_name: {}", &parent_name.eq(name), &parent_name, name);
+        let error_string = format_js_error(cause, true, Some((&parent_name).to_string()));
+        s.push_str(&format!(
+          "\nCaused by: {}",
+          error_string.trim_start_matches("Uncaught ")
+        ));
+
+        if let Some(master) = &master_message {
+          print!("\nmaster string: {}", master)
+        }
+      }
+    }
   }
   s
 }
@@ -239,7 +257,7 @@ impl Deref for PrettyJsError {
 
 impl fmt::Display for PrettyJsError {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    write!(f, "{}", &format_js_error(&self.0, false))
+    write!(f, "{}", &format_js_error(&self.0, false, None))
   }
 }
 
