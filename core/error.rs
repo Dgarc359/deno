@@ -359,12 +359,13 @@ impl std::error::Error for JsError {}
 
 fn format_source_loc(
   file_name: &str,
+  type_name: &str,
   line_number: i64,
   column_number: i64,
 ) -> String {
   let line_number = line_number;
   let column_number = column_number;
-  format!("{}:{}:{}", file_name, line_number, column_number)
+  format!("{}:{}:{}:{}", file_name, type_name, line_number, column_number)
 }
 
 impl Display for JsError {
@@ -378,10 +379,10 @@ impl Display for JsError {
     write!(f, "{}", self.exception_message)?;
     let frame = self.frames.first();
     if let Some(frame) = frame {
-      if let (Some(f_), Some(l), Some(c)) =
-        (&frame.file_name, frame.line_number, frame.column_number)
+      if let (Some(f_), Some(t_), Some(l), Some(c)) =
+        (&frame.file_name, &frame.type_name ,frame.line_number, frame.column_number)
       {
-        let source_loc = format_source_loc(f_, l, c);
+        let source_loc = format_source_loc(f_, t_, l, c);
         write!(f, "\n    at {}", source_loc)?;
       }
     }
