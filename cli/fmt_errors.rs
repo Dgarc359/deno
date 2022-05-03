@@ -181,20 +181,27 @@ fn format_maybe_source_line(
   format!("\n{}{}\n{}{}", indent, source_line, indent, color_underline)
 }
 
-fn format_js_error(js_error: &JsError, is_child: bool, master_message: Option<String>) -> String {
+fn format_js_error(js_error: &JsError, is_child: bool) -> String {
   let mut s = String::new();
   if let Some(parent_name) = &js_error.message {
     print!("\nname: {}", parent_name);
   }
-  if let Some(source_line) = &js_error.source_line_frame_index {
-    
-    print!("{}", source_line)
-  }
+
+
+  // // let mut messages = HashMap::new(); // this hashmap should be passed into the function, first iteration will have no hashmap, but other recursive calls will receive the hashmap from the caller function
+  // if let Some(master_hash_map) = master_hash_map {
+  //   if let Some(message) = &js_error.message {
+  //     // get value from index of vec
+  //     // master_hash_map.insert(&js_error.message, 1);
+  //     // check hashmap for value of message existence, if it exists, then reformat string with reference to value or itself
+  //   }
+  // }
+  // messages.insert(&js_error.message, 1); // key is message, value should be its index in the vec
 
   s.push_str(&js_error.exception_message);
   if let Some(aggregated) = &js_error.aggregated {
     for aggregated_error in aggregated {
-      let error_string = format_js_error(aggregated_error, true, None);
+      let error_string = format_js_error(aggregated_error, true);
       for line in error_string.trim_start_matches("Uncaught ").lines() {
         s.push_str(&format!("\n    {}", line));
       }
@@ -219,17 +226,16 @@ fn format_js_error(js_error: &JsError, is_child: bool, master_message: Option<St
   if let Some(cause) = &js_error.cause {
     let cause_name = &cause.message;
     if let Some(name) = &cause_name {
-      if let Some(parent_name) = &js_error.message {
-        print!("\nboolcheck: {}\nparent_name: {}\ncause_name: {}", &parent_name.eq(name), &parent_name, name);
-        let error_string = format_js_error(cause, true, Some((&parent_name).to_string()));
+      if let Some(message) = &js_error.message {
+        
+        // print!("\nboolcheck: {}\nparent_name: {}\ncause_name: {}", &message.eq(name), &message, name);
+
+        let error_string = format_js_error(cause, true);
         s.push_str(&format!(
           "\nCaused by: {}",
           error_string.trim_start_matches("Uncaught ")
         ));
-
-        if let Some(master) = &master_message {
-          print!("\nmaster string: {}", master)
-        }
+        
       }
     }
   }
@@ -255,9 +261,33 @@ impl Deref for PrettyJsError {
   }
 }
 
+fn is_circular(js_error: &JsError, messages: &mut Option<Vec<String>>) -> bool {
+  // determine if js_error is circular, then pass into recursive function
+
+  if let Some(message) = &js_error.message {
+    // check if message in messag
+    if let Some(messages) = &messages {
+      if messages.contains(message) { return true };
+    }
+
+    messages = &mut vec![];
+    messages.append(message);
+
+    if let Some(cause) = &js_error.cause {
+      if let Some(cause_name) = &cause.name {
+        if messages.contains(cause_name) { return true };
+        is_circular(cause, &mut messages);
+      }
+    }
+  }
+  return false
+}
+
 impl fmt::Display for PrettyJsError {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    write!(f, "{}", &format_js_error(&self.0, false, None))
+    let error_is_circular = is_circular(&self.0, &mut None);
+    print!("Error is circular: {}", error_is_circular);
+    write!(f, "{}", &format_js_error(&self.0, false))
   }
 }
 
